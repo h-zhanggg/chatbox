@@ -6,7 +6,7 @@ import * as chatStore from '../chatStore'
 import { createAttachmentResolver } from './attachment-resolver'
 import { createNewFork, findMessageLocation } from './forks'
 import { withSessionGenerationLock } from './generation-lock'
-import { insertMessageAfter } from './messages'
+import { insertMessage, insertMessageAfter } from './messages'
 import { orchestrateGeneration } from './orchestration'
 import { orchestratePictureGeneration } from './pictures'
 
@@ -67,6 +67,36 @@ export function generateMoreInNewFork(sessionId: string, msgId: string) {
     await createNewFork(sessionId, msgId)
     await generateMoreWithoutSessionLock(sessionId, msgId)
   })
+}
+
+const autoDialogueSessions = new Set<string>()
+const AUTO_DIALOGUE_MAX_TURNS = 20
+
+/**
+ * AI talks to AI: alternately generate a user-side reply (roles swapped) and an assistant reply until stopped
+ * @param sessionId Session ID
+ * @param userSidePrompt System prompt for the user-side AI; falls back to the session's system prompt
+ */
+export function startAutoDialogue(sessionId: string, userSidePrompt?: string) {
+  autoDialogueSessions.add(sessionId)
+  return withSessionGenerationLock(sessionId, async () => {
+    const session = await chatStore.getSession(sessionId)
+    let asUser = session?.messages[session.messages.length - 1]?.role !== 'user'
+    for (let i = 0; i < AUTO_DIALOGUE_MAX_TURNS && autoDialogueSessions.has(sessionId); i++, asUser = !asUser) {
+      const msg = createMessage(asUser ? 'user' : 'assistant', '')
+      msg.generating = true
+      await insertMessage(sessionId, msg)
+      await orchestrateGeneration(sessionId, msg, asUser ? { asUser: { systemPrompt: userSidePrompt } } : undefined)
+      const done = (await getMessageThreadContext(sessionId, msg.id)).find((m) => m.id === msg.id)
+      if (done?.error) {
+        break
+      }
+    }
+  }).finally(() => autoDialogueSessions.delete(sessionId))
+}
+
+export function stopAutoDialogue(sessionId: string) {
+  autoDialogueSessions.delete(sessionId)
 }
 
 type GenerateMoreFn = (sessionId: string, msgId: string) => Promise<void>

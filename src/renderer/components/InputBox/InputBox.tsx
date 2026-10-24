@@ -20,6 +20,7 @@ import {
   IconCirclePlus,
   IconFilePencil,
   IconFolder,
+  IconMessages,
   IconPhoto,
   IconPlayerStopFilled,
   IconPlus,
@@ -129,6 +130,7 @@ export type InputBoxProps = {
   onStartNewThread?(): boolean
   onRollbackThread?(): boolean
   onClickSessionSettings?(): boolean | Promise<boolean>
+  onStartAutoDialogue?(userSidePrompt: string): void
 }
 
 function mergeSessionAttachmentStatesIntoFiles(
@@ -214,6 +216,7 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
       onStopGenerating,
       onStartNewThread,
       onRollbackThread,
+      onStartAutoDialogue,
       onClickSessionSettings,
     },
     ref
@@ -1697,6 +1700,26 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
                     onKnowledgeBaseSelect={handleKnowledgeBaseSelect}
                     onSkillSelect={insertSkillCommand}
                   />
+                )}
+
+                {onStartAutoDialogue && (
+                  <Tooltip
+                    label={t('AI vs AI: let AI play the user side (input text becomes its persona)')}
+                    position="top"
+                    withArrow
+                  >
+                    <UnstyledButton
+                      onClick={() => onStartAutoDialogue(latestInputRef.current.trim())}
+                      disabled={generating}
+                      className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-[var(--chatbox-background-tertiary)] transition-colors disabled:opacity-50"
+                    >
+                      <IconMessages
+                        size={toolbarIconSize}
+                        strokeWidth={1.8}
+                        className="text-[var(--chatbox-tint-secondary)]"
+                      />
+                    </UnstyledButton>
+                  </Tooltip>
                 )}
 
                 {!isSmallScreen &&

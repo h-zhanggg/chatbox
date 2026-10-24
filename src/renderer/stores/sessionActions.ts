@@ -23,6 +23,8 @@ export {
   getMessageThreadContext,
   getSessionWebBrowsing,
   regenerateInNewFork,
+  startAutoDialogue,
+  stopAutoDialogue,
 } from './session/generation'
 // Re-export message operations from session/messages.ts
 export {

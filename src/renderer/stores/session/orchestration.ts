@@ -453,6 +453,7 @@ export async function orchestrateGeneration(
     appendToMessage?: boolean
     skipAgentModeSuggestion?: boolean
     agentModeEntrySource?: AgentModeEntrySource
+    asUser?: { systemPrompt?: string }
   }
 ) {
   const session = await chatStore.getSession(sessionId)
@@ -592,6 +593,7 @@ export async function orchestrateGeneration(
       providerOptions: settings.providerOptions,
       preserveLastPromptMessageToolCalls: Boolean(options?.appendToMessage),
       isPro: settingActions.isPro,
+      asUser: options?.asUser,
       sideEffects: {
         lockAgentMode: (reason) => {
           void lockSessionAgentMode(sessionId, reason)

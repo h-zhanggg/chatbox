@@ -13,7 +13,7 @@ import type {
   SessionSettings,
   Settings,
 } from '@shared/types'
-import { ModelProviderEnum } from '@shared/types'
+import { createMessage, ModelProviderEnum } from '@shared/types'
 import type { ModelDependencies } from '@shared/types/adapters'
 import { sequenceMessages } from '@shared/utils/message'
 import type { ToolSet } from 'ai'
@@ -64,6 +64,8 @@ export interface PrepareAgentGenerationHarnessOptions {
   sideEffects?: AgentGenerationSideEffects
   sandboxProviderFactory?: () => SandboxProvider | null
   isPro?: () => boolean
+  /** AI plays the user side: swap user/assistant roles, optionally replacing the system prompt */
+  asUser?: { systemPrompt?: string }
 }
 
 export interface PreparedAgentGenerationHarness {
@@ -194,6 +196,7 @@ export async function prepareAgentGenerationHarness(
     sideEffects,
     sandboxProviderFactory = createSandboxProvider,
     isPro = () => true,
+    asUser,
   } = options
 
   const allMessages = messages.slice(0, targetMsgIx)
@@ -304,6 +307,16 @@ export async function prepareAgentGenerationHarness(
   })
   const hasTools = Object.keys(tools).length > 0
   const instructions = hasTools ? `${GLOBAL_RESPONSE_LANGUAGE_INSTRUCTION}${toolInstructions}` : toolInstructions
+
+  if (asUser) {
+    const swappedRole = { user: 'assistant', assistant: 'user' } as const
+    promptMsgs = promptMsgs
+      .filter((m) => !(asUser.systemPrompt && m.role === 'system'))
+      .map((m) => (m.role === 'user' || m.role === 'assistant' ? { ...m, role: swappedRole[m.role] } : m))
+    if (asUser.systemPrompt) {
+      promptMsgs.unshift(createMessage('system', asUser.systemPrompt))
+    }
+  }
 
   let injectedMessages = injectModelSystemPrompt(
     model.modelId,

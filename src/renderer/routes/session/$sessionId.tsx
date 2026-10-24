@@ -22,7 +22,14 @@ import { updateSession as updateSessionStore, useSession } from '@/stores/chatSt
 import { applyChatboxLicenseDefaultModelToSession } from '@/stores/defaultChatModel'
 import { lastUsedModelStore } from '@/stores/lastUsedModelStore'
 import * as scrollActions from '@/stores/scrollActions'
-import { modifyMessage, removeCurrentThread, startNewThread, submitNewUserMessage } from '@/stores/sessionActions'
+import {
+  modifyMessage,
+  removeCurrentThread,
+  startAutoDialogue,
+  startNewThread,
+  stopAutoDialogue,
+  submitNewUserMessage,
+} from '@/stores/sessionActions'
 import { getAllMessageList } from '@/stores/sessionHelpers'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useUIStore } from '@/stores/uiStore'
@@ -204,12 +211,24 @@ function RouteComponent() {
     if (!currentSession) {
       return false
     }
+    stopAutoDialogue(currentSession.id)
     if (lastGeneratingMessage?.generating) {
       lastGeneratingMessage?.cancel?.()
       void modifyMessage(currentSession.id, { ...lastGeneratingMessage, generating: false }, true)
     }
     return true
   }, [currentSession, lastGeneratingMessage])
+
+  const onStartAutoDialogue = useCallback(
+    (userSidePrompt: string) => {
+      if (!currentSession) {
+        return
+      }
+      messageListRef.current?.setIsNewMessage(true)
+      void startAutoDialogue(currentSession.id, userSidePrompt)
+    },
+    [currentSession]
+  )
 
   const model = useMemo(() => {
     if (!currentSessionWithDefaultModel?.settings?.modelId || !currentSessionWithDefaultModel?.settings?.provider) {
@@ -257,6 +276,7 @@ function RouteComponent() {
             generating={!!lastGeneratingMessage}
             onSubmit={onSubmit}
             onStopGenerating={onStopGenerating}
+            onStartAutoDialogue={currentSession.type !== 'picture' ? onStartAutoDialogue : undefined}
           />
         </ErrorBoundary>
       </Box>
